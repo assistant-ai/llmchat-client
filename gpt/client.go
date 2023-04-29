@@ -70,22 +70,24 @@ func (g *GptClient) SenRandomContextMessage(message string) (string, error) {
 func (g *GptClient) SendMessage(message string, inputContextId string) (string, error) {
 	messages := make([]db.Message, 0)
 	contextId := inputContextId
-	if contextId == "" {
+	if contextId == "" || contextId == db.RandomContextId {
 		contextId = db.RandomContextId
+	} else {
+		messagesFromDb, err := db.GetMessagesByContextID(contextId)
+		if err != nil {
+			return "", err
+		}
+		messages = messagesFromDb
 	}
-	messages, err := db.GetMessagesByContextID(contextId)
 	if len(messages) > g.ContextDepth {
 		messages = messages[len(messages)-g.ContextDepth:]
-	}
-	if err != nil {
-		return "", err
 	}
 	if g.DefaultContext != "" {
 		defaultContextMessage := db.CreateNewMessage(db.SystemRoleName, g.DefaultContext, contextId)
 		messages = append([]db.Message{defaultContextMessage}, messages...)
 	}
 	newMessage := db.CreateNewMessage(db.UserRoleName, message, contextId)
-	_, err = db.StoreMessage(newMessage)
+	_, err := db.StoreMessage(newMessage)
 	if err != nil {
 		return "", err
 	}
@@ -174,6 +176,10 @@ func (g *GptClient) prepareGPTRequestBody(messages []db.Message) ([]byte, error)
 	maxTokens := g.MaxTokens
 	if tokens+g.MaxTokens >= 8192 {
 		maxTokens = g.MaxTokens - tokens
+	}
+
+	if maxTokens <= 0 {
+		return nil, errors.New("Not enough tokens")
 	}
 
 	requestBody, err := json.Marshal(map[string]interface{}{
