@@ -13,27 +13,40 @@ import (
 )
 
 type GptClient struct {
-	openAiKey      string
-	contextDepth   int
-	model          GPTModel
-	defaultContext string
+	OpenAiKey      string
+	ContextDepth   int
+	Model          GPTModel
+	DefaultContext string
 }
 
 func NewDefaultGptClient(openAiKey string) *GptClient {
 	return &GptClient{
-		openAiKey:      openAiKey,
-		contextDepth:   5,
-		model:          ModelGPT4,
-		defaultContext: "",
+		OpenAiKey:      openAiKey,
+		ContextDepth:   5,
+		Model:          ModelGPT4,
+		DefaultContext: "",
 	}
+}
+
+func NewDefaultGptClientFromFile(openAiKeyFilePath string) (*GptClient, error) {
+	b, err := os.ReadFile(openAiKeyFilePath)
+	if err != nil {
+		return nil, err
+	}
+	return &GptClient{
+		OpenAiKey:      strings.ReplaceAll(string(b), "\n", ""),
+		ContextDepth:   5,
+		Model:          ModelGPT4,
+		DefaultContext: "",
+	}, nil
 }
 
 func NewGptClient(openAiKey string, contextDepth int, model GPTModel, defaultContext string) *GptClient {
 	return &GptClient{
-		openAiKey:      openAiKey,
-		contextDepth:   contextDepth,
-		model:          model,
-		defaultContext: defaultContext,
+		OpenAiKey:      openAiKey,
+		ContextDepth:   contextDepth,
+		Model:          model,
+		DefaultContext: defaultContext,
 	}
 }
 
@@ -43,11 +56,15 @@ func NewGptClientFromFile(openAiKeyFlePath string, contextDepth int, model GPTMo
 		return nil, err
 	}
 	return &GptClient{
-		openAiKey:      strings.ReplaceAll(string(b), "\n", ""),
-		contextDepth:   contextDepth,
-		model:          model,
-		defaultContext: defaultContext,
+		OpenAiKey:      strings.ReplaceAll(string(b), "\n", ""),
+		ContextDepth:   contextDepth,
+		Model:          model,
+		DefaultContext: defaultContext,
 	}, nil
+}
+
+func (g *GptClient) SenRandomContextMessage(message string) (string, error) {
+	return g.SendMessage(message, db.RandomContextId)
 }
 
 func (g *GptClient) SendMessage(message string, inputContextId string) (string, error) {
@@ -57,14 +74,14 @@ func (g *GptClient) SendMessage(message string, inputContextId string) (string, 
 		contextId = db.RandomContextId
 	}
 	messages, err := db.GetMessagesByContextID(contextId)
-	if len(messages) > g.contextDepth {
-		messages = messages[len(messages)-g.contextDepth:]
+	if len(messages) > g.ContextDepth {
+		messages = messages[len(messages)-g.ContextDepth:]
 	}
 	if err != nil {
 		return "", err
 	}
-	if g.defaultContext != "" {
-		defaultContextMessage := db.CreateNewMessage(db.SystemRoleName, g.defaultContext, contextId)
+	if g.DefaultContext != "" {
+		defaultContextMessage := db.CreateNewMessage(db.SystemRoleName, g.DefaultContext, contextId)
 		messages = append([]db.Message{defaultContextMessage}, messages...)
 	}
 	newMessage := db.CreateNewMessage(db.UserRoleName, message, contextId)
@@ -114,7 +131,7 @@ func (g *GptClient) sendGPTRequest(requestBody []byte) (*GptChatCompletionMessag
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", g.openAiKey))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", g.OpenAiKey))
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -143,7 +160,7 @@ func (g *GptClient) prepareGPTRequestBody(messages []db.Message) ([]byte, error)
 		"messages":   gptMessages,
 		"max_tokens": 2000,
 		"n":          1,
-		"model":      g.model,
+		"model":      g.Model,
 	})
 
 	if err != nil {
