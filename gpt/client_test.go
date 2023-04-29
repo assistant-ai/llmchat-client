@@ -12,7 +12,7 @@ func TestSendMessage(t *testing.T) {
 	// Replace the API key with your OpenAI API key
 	apiKeyFilePath := filepath.Join(os.Getenv("HOME"), ".open-ai.key")
 	contextDepth := 5
-	client, err := NewGptClientFromFile(apiKeyFilePath, contextDepth, ModelGPT4, "")
+	client, err := NewGptClientFromFile(apiKeyFilePath, contextDepth, ModelGPT4, "", 8000)
 
 	if err != nil {
 		t.Fatalf("Failed to send message: %v", err)

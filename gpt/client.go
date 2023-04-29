@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -17,6 +18,7 @@ type GptClient struct {
 	ContextDepth   int
 	Model          GPTModel
 	DefaultContext string
+	MaxTokens      int
 }
 
 func NewDefaultGptClient(openAiKey string) *GptClient {
@@ -25,6 +27,7 @@ func NewDefaultGptClient(openAiKey string) *GptClient {
 		ContextDepth:   5,
 		Model:          ModelGPT4,
 		DefaultContext: "",
+		MaxTokens:      8000,
 	}
 }
 
@@ -33,24 +36,20 @@ func NewDefaultGptClientFromFile(openAiKeyFilePath string) (*GptClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &GptClient{
-		OpenAiKey:      strings.ReplaceAll(string(b), "\n", ""),
-		ContextDepth:   5,
-		Model:          ModelGPT4,
-		DefaultContext: "",
-	}, nil
+	return NewDefaultGptClient(strings.ReplaceAll(string(b), "\n", "")), nil
 }
 
-func NewGptClient(openAiKey string, contextDepth int, model GPTModel, defaultContext string) *GptClient {
+func NewGptClient(openAiKey string, contextDepth int, model GPTModel, defaultContext string, maxTokens int) *GptClient {
 	return &GptClient{
 		OpenAiKey:      openAiKey,
 		ContextDepth:   contextDepth,
 		Model:          model,
 		DefaultContext: defaultContext,
+		MaxTokens:      maxTokens,
 	}
 }
 
-func NewGptClientFromFile(openAiKeyFlePath string, contextDepth int, model GPTModel, defaultContext string) (*GptClient, error) {
+func NewGptClientFromFile(openAiKeyFlePath string, contextDepth int, model GPTModel, defaultContext string, maxTokens int) (*GptClient, error) {
 	b, err := os.ReadFile(openAiKeyFlePath)
 	if err != nil {
 		return nil, err
@@ -60,6 +59,7 @@ func NewGptClientFromFile(openAiKeyFlePath string, contextDepth int, model GPTMo
 		ContextDepth:   contextDepth,
 		Model:          model,
 		DefaultContext: defaultContext,
+		MaxTokens:      maxTokens,
 	}, nil
 }
 
@@ -142,23 +142,43 @@ func (g *GptClient) sendGPTRequest(requestBody []byte) (*GptChatCompletionMessag
 	defer resp.Body.Close()
 
 	var response GptChatCompletionMessage
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var decodedString = string(bodyBytes)
+	reader := strings.NewReader(decodedString)
+	if err := json.NewDecoder(reader).Decode(&response); err != nil {
 		return nil, err
 	}
 
 	if len(response.Choices) == 0 {
-		return nil, errors.New("Error response from GPT")
+		return nil, errors.New(fmt.Sprintf("Error response from GPT: %s", decodedString))
 	}
 
 	return &response, nil
 }
 
+func sumOfTokensAcrossAllMessages(messages []map[string]string) int {
+	tokens := 0
+	for _, message := range messages {
+		tokens += len(message["content"])
+		tokens += len(message["role"])
+	}
+	return tokens / 3
+}
+
 func (g *GptClient) prepareGPTRequestBody(messages []db.Message) ([]byte, error) {
 	gptMessages := convertMessagesToMaps(messages)
+	tokens := sumOfTokensAcrossAllMessages(gptMessages)
+	maxTokens := g.MaxTokens
+	if tokens+g.MaxTokens >= 8192 {
+		maxTokens = g.MaxTokens - tokens
+	}
 
 	requestBody, err := json.Marshal(map[string]interface{}{
 		"messages":   gptMessages,
-		"max_tokens": 2000,
+		"max_tokens": maxTokens,
 		"n":          1,
 		"model":      g.Model,
 	})
