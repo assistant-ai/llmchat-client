@@ -101,7 +101,12 @@ func (g *GptClient) SendMessage(message string, inputContextId string) (string, 
 	if err != nil {
 		return "", err
 	}
-	return answers[len(answers)-1].Content, nil
+	answerMessage := answers[len(answers)-1]
+	_, err = db.StoreMessage(answerMessage)
+	if err != nil {
+		return "", err
+	}
+	return answerMessage.Content, nil
 }
 
 func (g *GptClient) sendMessages(messages []db.Message, contextId string) ([]db.Message, error) {
