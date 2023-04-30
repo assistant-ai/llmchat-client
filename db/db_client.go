@@ -218,6 +218,26 @@ func DeleteMessageByID(id string) error {
 	return nil
 }
 
+func GetLastMessagesByContextID(contextID string, count int) ([]Message, error) {
+	rows, err := db.Query("SELECT id, context_id, timestamp, role, content FROM messages WHERE context_id=? ORDER BY timestamp DESC LIMIT ?", contextID, count)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	messages := []Message{}
+	for rows.Next() {
+		var m Message
+		err := rows.Scan(&m.ID, &m.ContextId, &m.Timestamp, &m.Role, &m.Content)
+		if err != nil {
+			return nil, err
+		}
+		messages = append(messages, m)
+	}
+
+	return messages, nil
+}
+
 func GetMessagesByContextID(contextID string) ([]Message, error) {
 	rows, err := db.Query("SELECT id, context_id, timestamp, role, content FROM messages WHERE context_id=? ORDER BY timestamp ASC", contextID)
 	if err != nil {

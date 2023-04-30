@@ -68,37 +68,41 @@ func (g *GptClient) SenRandomContextMessage(message string) (string, error) {
 }
 
 func (g *GptClient) SendMessage(message string, inputContextId string) (string, error) {
+	return g.SendMessageWithContextDepth(message, inputContextId, g.ContextDepth, true)
+}
+
+func (g *GptClient) SendMessageWithContextDepth(message string, inputContextId string, contextDepth int, addAllSystemContext bool) (string, error) {
 	messages := make([]db.Message, 0)
 	contextId := inputContextId
 	if contextId == "" || contextId == db.RandomContextId {
 		contextId = db.RandomContextId
 	} else {
-		messagesFromDb, err := db.GetMessagesByContextID(contextId)
+		count := contextDepth
+		messagesFromDb, err := db.GetLastMessagesByContextID(contextId, count)
 		if err != nil {
 			return "", err
 		}
 		messages = messagesFromDb
 	}
-	if len(messages) > g.ContextDepth {
-		messages = messages[len(messages)-g.ContextDepth:]
-	}
-	if g.DefaultContext != "" {
-		defaultContextMessage := db.CreateNewMessage(db.SystemRoleName, g.DefaultContext, contextId)
-		messages = append([]db.Message{defaultContextMessage}, messages...)
-	}
-	userDefaultContextExist, err := db.CheckIfUserDefaultContextExists()
-	if err != nil {
-		return "", err
-	}
-	if userDefaultContextExist {
-		userDefaultContextMessage, err := db.GetUserDefaultContextMessage()
+	if addAllSystemContext {
+		if g.DefaultContext != "" {
+			defaultContextMessage := db.CreateNewMessage(db.SystemRoleName, g.DefaultContext, contextId)
+			messages = append([]db.Message{defaultContextMessage}, messages...)
+		}
+		userDefaultContextExist, err := db.CheckIfUserDefaultContextExists()
 		if err != nil {
 			return "", err
 		}
-		messages = append([]db.Message{userDefaultContextMessage}, messages...)
+		if userDefaultContextExist {
+			userDefaultContextMessage, err := db.GetUserDefaultContextMessage()
+			if err != nil {
+				return "", err
+			}
+			messages = append([]db.Message{userDefaultContextMessage}, messages...)
+		}
 	}
 	newMessage := db.CreateNewMessage(db.UserRoleName, message, contextId)
-	_, err = db.StoreMessage(newMessage)
+	_, err := db.StoreMessage(newMessage)
 	if err != nil {
 		return "", err
 	}
