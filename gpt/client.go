@@ -16,7 +16,7 @@ import (
 type GptClient struct {
 	OpenAiKey      string
 	ContextDepth   int
-	Model          GPTModel
+	Model          *GPTModel
 	DefaultContext string
 	MaxTokens      int
 }
@@ -39,7 +39,7 @@ func NewDefaultGptClientFromFile(openAiKeyFilePath string) (*GptClient, error) {
 	return NewDefaultGptClient(strings.ReplaceAll(string(b), "\n", "")), nil
 }
 
-func NewGptClient(openAiKey string, contextDepth int, model GPTModel, defaultContext string, maxTokens int) *GptClient {
+func NewGptClient(openAiKey string, contextDepth int, model *GPTModel, defaultContext string, maxTokens int) *GptClient {
 	return &GptClient{
 		OpenAiKey:      openAiKey,
 		ContextDepth:   contextDepth,
@@ -49,7 +49,7 @@ func NewGptClient(openAiKey string, contextDepth int, model GPTModel, defaultCon
 	}
 }
 
-func NewGptClientFromFile(openAiKeyFlePath string, contextDepth int, model GPTModel, defaultContext string, maxTokens int) (*GptClient, error) {
+func NewGptClientFromFile(openAiKeyFlePath string, contextDepth int, model *GPTModel, defaultContext string, maxTokens int) (*GptClient, error) {
 	b, err := os.ReadFile(openAiKeyFlePath)
 	if err != nil {
 		return nil, err
@@ -86,8 +86,19 @@ func (g *GptClient) SendMessage(message string, inputContextId string) (string, 
 		defaultContextMessage := db.CreateNewMessage(db.SystemRoleName, g.DefaultContext, contextId)
 		messages = append([]db.Message{defaultContextMessage}, messages...)
 	}
+	userDefaultContextExist, err := db.CheckIfUserDefaultContextExists()
+	if err != nil {
+		return "", err
+	}
+	if userDefaultContextExist {
+		userDefaultContextMessage, err := db.GetUserDefaultContextMessage()
+		if err != nil {
+			return "", err
+		}
+		messages = append([]db.Message{userDefaultContextMessage}, messages...)
+	}
 	newMessage := db.CreateNewMessage(db.UserRoleName, message, contextId)
-	_, err := db.StoreMessage(newMessage)
+	_, err = db.StoreMessage(newMessage)
 	if err != nil {
 		return "", err
 	}
@@ -179,7 +190,7 @@ func (g *GptClient) prepareGPTRequestBody(messages []db.Message) ([]byte, error)
 	gptMessages := convertMessagesToMaps(messages)
 	tokens := sumOfTokensAcrossAllMessages(gptMessages)
 	maxTokens := g.MaxTokens
-	if tokens+g.MaxTokens >= 8192 {
+	if tokens+g.MaxTokens >= g.Model.MaxTokens {
 		maxTokens = g.MaxTokens - tokens
 	}
 
@@ -191,7 +202,7 @@ func (g *GptClient) prepareGPTRequestBody(messages []db.Message) ([]byte, error)
 		"messages":   gptMessages,
 		"max_tokens": maxTokens,
 		"n":          1,
-		"model":      g.Model,
+		"model":      g.Model.Name,
 	})
 
 	if err != nil {

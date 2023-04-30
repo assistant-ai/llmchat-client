@@ -11,6 +11,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+const DefaultContextID = "defaultUserContext"
+
 var db *sql.DB
 
 func init() {
@@ -86,7 +88,26 @@ func CheckIfContextExists(contextId string) (bool, error) {
 	return exists, nil
 }
 
+func CheckIfUserDefaultContextExists() (bool, error) {
+	return CheckIfContextExists(DefaultContextID)
+}
+
+func GetUserDefaultContextMessage() (Message, error) {
+	return GetContextMessage(DefaultContextID)
+}
+
+func UpdateUserDefaultContext(context string) error {
+	return UpdateContext(DefaultContextID, context)
+}
+
 func UpdateContext(contextId string, context string) error {
+	exist, err := CheckIfContextExists(contextId)
+	if err != nil {
+		return err
+	}
+	if !exist {
+		return CreateContext(contextId, context)
+	}
 	stmt, err := db.Prepare("UPDATE context SET context=? WHERE context_id=?")
 	if err != nil {
 		return err
