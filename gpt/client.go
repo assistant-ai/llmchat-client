@@ -100,6 +100,11 @@ func (g *GptClient) SendMessageWithContextDepth(message string, inputContextId s
 			}
 			messages = append([]db.Message{userDefaultContextMessage}, messages...)
 		}
+		contextMessage, err := db.GetContextMessage(contextId)
+		if err != nil {
+			return "", err
+		}
+		messages = append([]db.Message{contextMessage}, messages...)
 	}
 	newMessage := db.CreateNewMessage(db.UserRoleName, message, contextId)
 	_, err := db.StoreMessage(newMessage)
@@ -107,11 +112,6 @@ func (g *GptClient) SendMessageWithContextDepth(message string, inputContextId s
 		return "", err
 	}
 	messages = append(messages, newMessage)
-	contextMessage, err := db.GetContextMessage(contextId)
-	if err != nil {
-		return "", err
-	}
-	messages = append([]db.Message{contextMessage}, messages...)
 	answers, err := g.sendMessages(messages, contextId)
 	if err != nil {
 		return "", err
