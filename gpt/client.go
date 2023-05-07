@@ -74,6 +74,15 @@ func (g *GptClient) SendMessage(message string, inputContextId string) (string, 
 func (g *GptClient) SendMessageWithContextDepth(message string, inputContextId string, contextDepth int, addAllSystemContext bool) (string, error) {
 	messages := make([]db.Message, 0)
 	contextId := inputContextId
+
+	existContext, err := db.CheckIfContextExists(contextId)
+	if err != nil {
+		return "", err
+	}
+	if !existContext {
+		db.CreateContext(contextId, "")
+	}
+
 	if contextId == "" || contextId == db.RandomContextId {
 		contextId = db.RandomContextId
 	} else {
@@ -107,7 +116,7 @@ func (g *GptClient) SendMessageWithContextDepth(message string, inputContextId s
 		messages = append([]db.Message{contextMessage}, messages...)
 	}
 	newMessage := db.CreateNewMessage(db.UserRoleName, message, contextId)
-	_, err := db.StoreMessage(newMessage)
+	_, err = db.StoreMessage(newMessage)
 	if err != nil {
 		return "", err
 	}

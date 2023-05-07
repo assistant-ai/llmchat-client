@@ -4,8 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/assistant-ai/llmchat-client/db"
 )
 
 func TestSendMessage(t *testing.T) {
@@ -20,7 +18,7 @@ func TestSendMessage(t *testing.T) {
 
 	// Test input and expected response
 	testMessage := "Hello, AI assistant! How are you?"
-	inputContextId := db.RandomContextId
+	inputContextId := "12"
 
 	response, err := client.SendMessage(testMessage, inputContextId)
 	if err != nil {
