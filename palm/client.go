@@ -1,12 +1,10 @@
 package palm
 import (
 	"fmt"
-	"io"
 	"context"
 	"encoding/json"
 	"net/http"
 	"bytes"
-	"strings"
 	"io/ioutil"
 	"github.com/assistant-ai/llmchat-client/db"
 	"github.com/assistant-ai/llmchat-client/client"
@@ -120,7 +118,6 @@ func (c *PalmClient) SendMessages(messages []db.Message, context []string) ([]db
 	}
 
 	data, err := json.Marshal(payload)
-	fmt.Println("***" + string(data))
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +137,6 @@ func (c *PalmClient) SendMessages(messages []db.Message, context []string) ([]db
 	defer resp.Body.Close()
 
 	responseBody, err := ioutil.ReadAll(resp.Body)
-	printDebugInfo(req, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -163,48 +159,6 @@ func (c *PalmClient) SendMessages(messages []db.Message, context []string) ([]db
 
 	// Return the modified messages slice (including responses)
 	return messages, nil
-}
-
-func bufferAndReplaceBody(readCloser io.ReadCloser) (string, io.ReadCloser) {
-    if readCloser == nil {
-        return "", nil
-    }
-
-    body, _ := ioutil.ReadAll(readCloser)
-    readCloser.Close()
-    return string(body), ioutil.NopCloser(bytes.NewBuffer(body))
-}
-
-func printDebugInfo(req *http.Request, resp *http.Response) {
-    var requestBody, responseBody string
-    requestBody, req.Body = bufferAndReplaceBody(req.Body)
-    responseBody, resp.Body = bufferAndReplaceBody(resp.Body)
-
-    fmt.Printf("Request method: %s\n", req.Method)
-    fmt.Printf("Request URL: %s\n", req.URL)
-    fmt.Println("Request headers:")
-
-    for header, values := range req.Header {
-        fmt.Printf("%s: %s\n", header, strings.Join(values, ", "))
-    }
-
-    if requestBody != "" {
-        fmt.Printf("\nRequest body:\n%s\n", requestBody)
-    }
-
-    if resp != nil {
-        fmt.Printf("\nResponse status: %s\n", resp.Status)
-        fmt.Printf("Response status code: %d\n", resp.StatusCode)
-        fmt.Println("Response headers:")
-
-        for header, values := range resp.Header {
-            fmt.Printf("%s: %s\n", header, strings.Join(values, ", "))
-        }
-
-        if responseBody != "" {
-            fmt.Printf("\nResponse body:\n%s\n", responseBody)
-        }
-    }
 }
 
 func dbMessageToPalmMessage(dbMsg db.Message) PalmMessage {
