@@ -11,7 +11,7 @@ type Client struct {
 }
 
 type LllmChatClient interface {
-	SendMessages([]db.Message) ([]db.Message, error)
+	SendMessages(messages []db.Message, context []string) ([]db.Message, error)
 }
 
 func (c *Client) SenRandomContextMessage(message string) (string, error) {
@@ -25,6 +25,7 @@ func (c *Client) SendMessage(message string, inputContextId string) (string, err
 func (c *Client) SendMessageWithContextDepth(message string, inputContextId string, contextDepth int, addAllSystemContext bool) (string, error) {
 	messages := make([]db.Message, 0)
 	contextId := inputContextId
+	context := make([]string, 0)
 
 	existContext, err := db.CheckIfContextExists(contextId)
 	if err != nil {
@@ -46,8 +47,9 @@ func (c *Client) SendMessageWithContextDepth(message string, inputContextId stri
 	}
 	if addAllSystemContext {
 		if c.DefaultContext != "" {
-			defaultContextMessage := db.CreateNewMessage(db.SystemRoleName, c.DefaultContext, contextId)
-			messages = append([]db.Message{defaultContextMessage}, messages...)
+			context = append(context, c.DefaultContext)
+			// defaultContextMessage := db.CreateNewMessage(db.SystemRoleName, c.DefaultContext, contextId)
+			// messages = append([]db.Message{defaultContextMessage}, messages...)
 		}
 		userDefaultContextExist, err := db.CheckIfUserDefaultContextExists()
 		if err != nil {
@@ -58,13 +60,15 @@ func (c *Client) SendMessageWithContextDepth(message string, inputContextId stri
 			if err != nil {
 				return "", err
 			}
-			messages = append([]db.Message{userDefaultContextMessage}, messages...)
+			context = append(context, userDefaultContextMessage)
 		}
 		contextMessage, err := db.GetContextMessage(contextId)
 		if err != nil {
 			return "", err
 		}
-		messages = append([]db.Message{contextMessage}, messages...)
+		if contextMessage != "" {
+			context = append(context, contextMessage)
+		}
 	}
 	newMessage := db.CreateNewMessage(db.UserRoleName, message, contextId)
 	_, err = db.StoreMessage(newMessage)
@@ -72,7 +76,7 @@ func (c *Client) SendMessageWithContextDepth(message string, inputContextId stri
 		return "", err
 	}
 	messages = append(messages, newMessage)
-	answers, err := (c.Client).SendMessages(messages)
+	answers, err := (c.Client).SendMessages(messages, context)
 	if err != nil {
 		return "", err
 	}

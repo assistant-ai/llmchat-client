@@ -68,7 +68,11 @@ func NewGptClientFromFile(openAiKeyFlePath string, contextDepth int, model *GPTM
 	}, nil
 }
 
-func (g *GptClient) SendMessages(messages []db.Message) ([]db.Message, error) {
+func (g *GptClient) SendMessages(messages []db.Message, context []string) ([]db.Message, error) {
+	contextId := messages[0].ContextId
+	for _, contextMsg := range context {
+		messages = append(messages, db.CreateNewMessage(db.SystemRoleName, contextMsg, contextId))
+	}
 	requestBody, err := g.prepareGPTRequestBody(messages)
 	if err != nil {
 		return nil, err

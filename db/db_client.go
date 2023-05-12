@@ -92,7 +92,7 @@ func CheckIfUserDefaultContextExists() (bool, error) {
 	return CheckIfContextExists(DefaultContextID)
 }
 
-func GetUserDefaultContextMessage() (Message, error) {
+func GetUserDefaultContextMessage() (string, error) {
 	return GetContextMessage(DefaultContextID)
 }
 
@@ -193,15 +193,15 @@ func GetMessageByID(id string) (Message, error) {
 	return m, nil
 }
 
-func GetContextMessage(contextId string) (Message, error) {
+func GetContextMessage(contextId string) (string, error) {
 	var m Message
 	m.Role = SystemRoleName
 	err := db.QueryRow("SELECT context_id, context FROM context WHERE context_id=?", contextId).Scan(&m.ContextId, &m.Content)
 	if err != nil {
-		return Message{}, err
+		return "", err
 	}
 
-	return m, nil
+	return m.Content, nil
 }
 
 func DeleteMessageByID(id string) error {

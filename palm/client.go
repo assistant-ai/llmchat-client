@@ -1,0 +1,215 @@
+package palm
+import (
+	"fmt"
+	"io"
+	"context"
+	"encoding/json"
+	"net/http"
+	"bytes"
+	"strings"
+	"io/ioutil"
+	"github.com/assistant-ai/llmchat-client/db"
+	"github.com/assistant-ai/llmchat-client/client"
+	"golang.org/x/oauth2/google"
+)
+
+type PalmClient struct {
+	GCPAccessToken string
+	GCPProjectId string
+}
+
+func NewDefaultTokenPalmClient(GCPProjectId string) (*client.Client, error) {
+	token, err := getDefaultAccesstToken()
+	if (err != nil) {
+		return nil, err
+	}
+	return &client.Client{
+		Client:  &PalmClient{
+			GCPAccessToken: token,
+			GCPProjectId: GCPProjectId,
+		},
+		ContextDepth:   8,
+		DefaultContext: db.RandomContextId,
+	}, nil
+}
+
+func NewPalmClient(GCPProjectId string, serviceAccountJsonPath string) (*client.Client, error) {
+	token, err := getAccessTokenFromFile(serviceAccountJsonPath)
+	if (err != nil) {
+		return nil, err
+	}
+	return &client.Client{
+		Client:  &PalmClient{
+			GCPAccessToken: token,
+			GCPProjectId: GCPProjectId,
+		},
+		ContextDepth:   8,
+		DefaultContext: db.RandomContextId,
+	}, nil
+}
+
+func getDefaultAccesstToken() (string, error) {
+	ctx := context.Background()
+	creds, err := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		return "", fmt.Errorf("unable to find default credentials: %v", err)
+	}
+	return getAccessToken(creds)
+}
+
+func getAccessTokenFromFile(saFilePath string) (string, error) {
+	ctx := context.Background()
+
+	// Read service account file content
+	jsonKey, err := ioutil.ReadFile(saFilePath)
+	if err != nil {
+		return "", fmt.Errorf("unable to read service account file: %v", err)
+	}
+
+	// Parse the credentials from the JSON key
+	creds, err := google.CredentialsFromJSON(ctx, jsonKey, "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		return "", fmt.Errorf("unable to parse service account credentials: %v", err)
+	}
+	return getAccessToken(creds)
+}
+
+func getAccessToken(creds *google.Credentials) (string, error) {
+	tokenSource := creds.TokenSource
+	token, err := tokenSource.Token()
+	if err != nil {
+		return "", fmt.Errorf("unable to obtain access token: %v", err)
+	}
+
+	return token.AccessToken, nil
+}
+
+func (c *PalmClient) SendMessages(messages []db.Message, context []string) ([]db.Message, error) {
+	apiEndpoint := "us-central1-aiplatform.googleapis.com"
+	modelID := "chat-bison"
+
+	url := fmt.Sprintf("https://%s/v1/projects/%s/locations/us-central1/publishers/google/models/%s:predict", apiEndpoint, c.GCPProjectId, modelID)
+
+	palmMessages := make([]PalmMessage, 0, len(messages))
+	for _, msg := range messages {
+		palmMessages = append(palmMessages, dbMessageToPalmMessage(msg))
+	}
+
+	finalContext := ""
+
+	for _, contextMsg := range context {
+		finalContext = finalContext + "\n" + contextMsg
+	}
+
+	palmInstance := &PalmInstance{
+		Context: finalContext,
+		Examples: make([]string, 0),
+		Messages: palmMessages,
+	}
+	palmInstances := make([]PalmInstance, 1)
+	palmInstances[0] = *palmInstance
+
+	payload := PredictPayload{
+		Instances: palmInstances,
+		Parameters: Parameters{
+			Temperature:    0.2,
+			MaxOutputTokens: 1000,
+			TopP:            0.8,
+			TopK:            40,
+		},
+	}
+
+	data, err := json.Marshal(payload)
+	fmt.Println("***" + string(data))
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.GCPAccessToken))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := ioutil.ReadAll(resp.Body)
+	printDebugInfo(req, resp)
+	if err != nil {
+		return nil, err
+	}
+
+	var predictResp PredictResponse
+	err = json.Unmarshal(responseBody, &predictResp)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract and append response messages (PalmMessage format)
+	newDbMessages := make([]db.Message, 0, len(predictResp.Predictions))
+	for _, prediction := range predictResp.Predictions {
+		for _, candidate := range prediction.Candidates {
+			newDbMessages = append(newDbMessages, db.CreateNewMessage(candidate.Author, candidate.Content, messages[0].ContextId))
+		}
+	}
+
+	messages = append(messages, newDbMessages...)
+
+	// Return the modified messages slice (including responses)
+	return messages, nil
+}
+
+func bufferAndReplaceBody(readCloser io.ReadCloser) (string, io.ReadCloser) {
+    if readCloser == nil {
+        return "", nil
+    }
+
+    body, _ := ioutil.ReadAll(readCloser)
+    readCloser.Close()
+    return string(body), ioutil.NopCloser(bytes.NewBuffer(body))
+}
+
+func printDebugInfo(req *http.Request, resp *http.Response) {
+    var requestBody, responseBody string
+    requestBody, req.Body = bufferAndReplaceBody(req.Body)
+    responseBody, resp.Body = bufferAndReplaceBody(resp.Body)
+
+    fmt.Printf("Request method: %s\n", req.Method)
+    fmt.Printf("Request URL: %s\n", req.URL)
+    fmt.Println("Request headers:")
+
+    for header, values := range req.Header {
+        fmt.Printf("%s: %s\n", header, strings.Join(values, ", "))
+    }
+
+    if requestBody != "" {
+        fmt.Printf("\nRequest body:\n%s\n", requestBody)
+    }
+
+    if resp != nil {
+        fmt.Printf("\nResponse status: %s\n", resp.Status)
+        fmt.Printf("Response status code: %d\n", resp.StatusCode)
+        fmt.Println("Response headers:")
+
+        for header, values := range resp.Header {
+            fmt.Printf("%s: %s\n", header, strings.Join(values, ", "))
+        }
+
+        if responseBody != "" {
+            fmt.Printf("\nResponse body:\n%s\n", responseBody)
+        }
+    }
+}
+
+func dbMessageToPalmMessage(dbMsg db.Message) PalmMessage {
+	return PalmMessage{
+		Author:  dbMsg.Role,
+		Content: dbMsg.Content,
+	}
+}
