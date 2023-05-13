@@ -13,9 +13,9 @@ func TestSendMessage(t *testing.T) {
 
 	// Test input and expected response
 	testMessage := "Hello, AI assistant! How are you?"
-	inputContextId := "123"
+	inputContextId := "palm"
 
-	response, err := client.SendMessageWithContextDepth(testMessage, inputContextId, 0, false)
+	response, err := client.SendMessage(testMessage, inputContextId)
 	if err != nil {
 		t.Fatalf("Failed to send message: %v", err)
 	}

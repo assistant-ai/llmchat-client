@@ -82,6 +82,19 @@ func getAccessToken(creds *google.Credentials) (string, error) {
 	return token.AccessToken, nil
 }
 
+func hackyZipAllMessagesInOne(messages []PalmMessage) []PalmMessage {
+	finalMessage := ""
+	for _, msg := range messages {
+		finalMessage = fmt.Sprintf("%s: %s\n", msg.Author, msg.Content)
+	}
+	newMessages := make([]PalmMessage, 1)
+	newMessages[0] = PalmMessage{
+		Author: "user",
+		Content: finalMessage,
+	}
+	return newMessages
+}
+
 func (c *PalmClient) SendMessages(messages []db.Message, context []string) ([]db.Message, error) {
 	apiEndpoint := "us-central1-aiplatform.googleapis.com"
 	modelID := "chat-bison"
@@ -107,7 +120,7 @@ func (c *PalmClient) SendMessages(messages []db.Message, context []string) ([]db
 	palmInstance := &PalmInstance{
 		Context: finalContext,
 		Examples: make([]string, 0),
-		Messages: palmMessages,
+		Messages: hackyZipAllMessagesInOne(palmMessages),
 	}
 	palmInstances := make([]PalmInstance, 1)
 	palmInstances[0] = *palmInstance
@@ -115,7 +128,7 @@ func (c *PalmClient) SendMessages(messages []db.Message, context []string) ([]db
 	payload := PredictPayload{
 		Instances: palmInstances,
 		Parameters: Parameters{
-			Temperature:    0.2,
+			Temperature:     0.2,
 			MaxOutputTokens: 1000,
 			TopP:            0.9,
 			TopK:            40,
@@ -147,6 +160,7 @@ func (c *PalmClient) SendMessages(messages []db.Message, context []string) ([]db
 	}
 
 	var predictResp PredictResponse
+	
 	err = json.Unmarshal(responseBody, &predictResp)
 	if err != nil {
 		return nil, err

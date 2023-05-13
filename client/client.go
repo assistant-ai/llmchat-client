@@ -26,7 +26,6 @@ func (c *Client) SendMessageWithContextDepth(message string, inputContextId stri
 	messages := make([]db.Message, 0)
 	contextId := inputContextId
 	context := make([]string, 0)
-
 	existContext, err := db.CheckIfContextExists(contextId)
 	if err != nil {
 		return "", err
@@ -48,8 +47,6 @@ func (c *Client) SendMessageWithContextDepth(message string, inputContextId stri
 	if addAllSystemContext {
 		if c.DefaultContext != "" {
 			context = append(context, c.DefaultContext)
-			// defaultContextMessage := db.CreateNewMessage(db.SystemRoleName, c.DefaultContext, contextId)
-			// messages = append([]db.Message{defaultContextMessage}, messages...)
 		}
 		userDefaultContextExist, err := db.CheckIfUserDefaultContextExists()
 		if err != nil {
