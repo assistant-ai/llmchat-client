@@ -170,7 +170,7 @@ func (c *PalmClient) SendMessages(messages []db.Message, context []string) ([]db
 	newDbMessages := make([]db.Message, 0, len(predictResp.Predictions))
 	for _, prediction := range predictResp.Predictions {
 		for _, candidate := range prediction.Candidates {
-			newDbMessages = append(newDbMessages, db.CreateNewMessage(candidate.Author, candidate.Content, messages[0].ContextId))
+			newDbMessages = append(newDbMessages, db.CreateNewMessage(db.AssistentRoleNeam, candidate.Content, messages[0].ContextId))
 		}
 	}
 
