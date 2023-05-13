@@ -27,7 +27,7 @@ func NewDefaultTokenPalmClient(GCPProjectId string) (*client.Client, error) {
 			GCPProjectId: GCPProjectId,
 		},
 		ContextDepth:   8,
-		DefaultContext: db.RandomContextId,
+		DefaultContext: "",
 	}, nil
 }
 
