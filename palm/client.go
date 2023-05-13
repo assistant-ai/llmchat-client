@@ -99,6 +99,11 @@ func (c *PalmClient) SendMessages(messages []db.Message, context []string) ([]db
 		finalContext = finalContext + "\n" + contextMsg
 	}
 
+	palmMessages, err := TrimIfNeeded(palmMessages, finalContext)
+	if err != nil {
+		return nil, err
+	}
+
 	palmInstance := &PalmInstance{
 		Context: finalContext,
 		Examples: make([]string, 0),
@@ -112,7 +117,7 @@ func (c *PalmClient) SendMessages(messages []db.Message, context []string) ([]db
 		Parameters: Parameters{
 			Temperature:    0.2,
 			MaxOutputTokens: 1000,
-			TopP:            0.8,
+			TopP:            0.9,
 			TopK:            40,
 		},
 	}
