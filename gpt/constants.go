@@ -12,6 +12,11 @@ var ModelGPT4 = &GPTModel{
 	MaxTokens: 8000,
 }
 
+var ModelGPT4Big = &GPTModel{
+	Name:      "gpt-4-32k",
+	MaxTokens: 32000,
+}
+
 var ModelGPT3Turbo = &GPTModel{
 	Name:      "gpt-3.5-turbo",
 	MaxTokens: 4000,

@@ -141,8 +141,13 @@ func (g *GptClient) prepareGPTRequestBody(messages []db.Message) ([]byte, error)
 	gptMessages := convertMessagesToMaps(messages)
 	tokens := sumOfTokensAcrossAllMessages(gptMessages)
 	maxTokens := g.MaxTokens
+	model := g.Model
 	if tokens+g.MaxTokens >= g.Model.MaxTokens {
-		maxTokens = g.MaxTokens - tokens
+		maxTokens = model.MaxTokens - tokens
+		if g.Model == ModelGPT4 && tokens > g.Model.MaxTokens/2 {
+			model = ModelGPT4Big
+			maxTokens = model.MaxTokens - tokens
+		}
 	}
 
 	if maxTokens <= 0 {
@@ -153,7 +158,7 @@ func (g *GptClient) prepareGPTRequestBody(messages []db.Message) ([]byte, error)
 		"messages":   gptMessages,
 		"max_tokens": maxTokens,
 		"n":          1,
-		"model":      g.Model.Name,
+		"model":      model.Name,
 	})
 
 	if err != nil {
