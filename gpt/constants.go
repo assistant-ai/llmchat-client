@@ -8,7 +8,8 @@ type GPTModel struct {
 }
 
 var ModelGPT4 = &GPTModel{
-	Name:      "gpt-4",
+	// gpt-4-0613 is a special model that fine tunned to support JSON output formatting
+	Name:      "gpt-4-0613",
 	MaxTokens: 8000,
 }
 

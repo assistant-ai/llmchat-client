@@ -12,65 +12,58 @@ import (
 
 	"github.com/assistant-ai/llmchat-client/client"
 	"github.com/assistant-ai/llmchat-client/db"
+	"github.com/sirupsen/logrus"
 )
 
 type GptClient struct {
 	OpenAiKey string
 	Model     *GPTModel
 	MaxTokens int
+	Logger    *logrus.Logger
 }
 
-func NewDefaultGptClient(openAiKey string) *client.Client {
-	return &client.Client{
-		Client: &GptClient{
-			OpenAiKey: openAiKey,
-			Model:     ModelGPT4,
-			MaxTokens: 8000,
-		},
-		ContextDepth:   5,
-		DefaultContext: "",
-	}
+func NewDefaultGptClient(openAiKey string, logger *logrus.Logger) *client.Client {
+	return NewGptClient(openAiKey, 5, ModelGPT4, "", 8000, logger)
 }
 
-func NewDefaultGptClientFromFile(openAiKeyFilePath string) (*client.Client, error) {
+func NewDefaultGptClientFromFile(openAiKeyFilePath string, logger *logrus.Logger) (*client.Client, error) {
 	b, err := os.ReadFile(openAiKeyFilePath)
 	if err != nil {
 		return nil, err
 	}
-	return NewDefaultGptClient(strings.ReplaceAll(string(b), "\n", "")), nil
+	return NewDefaultGptClient(strings.ReplaceAll(string(b), "\n", ""), logger), nil
 }
 
-func NewGptClient(openAiKey string, contextDepth int, model *GPTModel, defaultContext string, maxTokens int) *client.Client {
+func NewGptClient(openAiKey string, contextDepth int, model *GPTModel, defaultContext string, maxTokens int, logger *logrus.Logger) *client.Client {
 	return &client.Client{
 		Client: &GptClient{
 			OpenAiKey: openAiKey,
 			Model:     ModelGPT4,
 			MaxTokens: maxTokens,
+			Logger:    logger,
 		},
 		ContextDepth:   contextDepth,
 		DefaultContext: defaultContext,
+		Logger:         logger,
 	}
 }
 
-func NewGptClientFromFile(openAiKeyFlePath string, contextDepth int, model *GPTModel, defaultContext string, maxTokens int) (*client.Client, error) {
+func NewGptClientFromFile(openAiKeyFlePath string, contextDepth int, model *GPTModel, defaultContext string, maxTokens int, logger *logrus.Logger) (*client.Client, error) {
 	b, err := os.ReadFile(openAiKeyFlePath)
 	if err != nil {
 		return nil, err
 	}
-	return &client.Client{
-		Client: &GptClient{
-			OpenAiKey: strings.ReplaceAll(string(b), "\n", ""),
-			Model:     ModelGPT4,
-			MaxTokens: maxTokens,
-		},
-		ContextDepth:   contextDepth,
-		DefaultContext: defaultContext,
-	}, nil
+	return NewGptClient(strings.ReplaceAll(string(b), "\n", ""), contextDepth, ModelGPT4, defaultContext, maxTokens, logger), nil
 }
 
 func (g *GptClient) SendMessages(messages []db.Message, context []string) ([]db.Message, error) {
 	contextId := messages[0].ContextId
 	for _, contextMsg := range context {
+		if g.Logger != nil {
+			g.Logger.WithFields(logrus.Fields{
+				"contextMsg": contextMsg,
+			}).Debug("GPT context msg")
+		}
 		messages = append(messages, db.CreateNewMessage(db.SystemRoleName, contextMsg, contextId))
 	}
 	requestBody, err := g.prepareGPTRequestBody(messages)
@@ -161,6 +154,12 @@ func (g *GptClient) prepareGPTRequestBody(messages []db.Message) ([]byte, error)
 		"n":          1,
 		"model":      model.Name,
 	})
+
+	if g.Logger != nil {
+		g.Logger.WithFields(logrus.Fields{
+			"requestBody": string(requestBody),
+		}).Debug("GPT request")
+	}
 
 	if err != nil {
 		return nil, err

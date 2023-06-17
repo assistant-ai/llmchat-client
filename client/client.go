@@ -2,12 +2,14 @@ package client
 
 import (
 	"github.com/assistant-ai/llmchat-client/db"
+	"github.com/sirupsen/logrus"
 )
 
 type Client struct {
 	Client         LllmChatClient
 	ContextDepth   int
 	DefaultContext string
+	Logger         *logrus.Logger
 }
 
 type LllmChatClient interface {
@@ -25,6 +27,14 @@ func (c *Client) SendMessage(message string, inputContextId string) (string, err
 func (c *Client) SendMessageWithContextDepth(message string, inputContextId string, contextDepth int, addAllSystemContext bool) (string, error) {
 	messages := make([]db.Message, 0)
 	contextId := inputContextId
+	if c.Logger != nil {
+		c.Logger.WithFields(logrus.Fields{
+			"message":           message,
+			"contextId":         contextId,
+			"contextDepth":      contextDepth,
+			"addAllSystemConte": addAllSystemContext,
+		}).Debug("Send message")
+	}
 	context := make([]string, 0)
 	existContext, err := db.CheckIfContextExists(contextId)
 	if err != nil {
@@ -59,13 +69,19 @@ func (c *Client) SendMessageWithContextDepth(message string, inputContextId stri
 			}
 			context = append(context, userDefaultContextMessage)
 		}
-		contextMessage, err := db.GetContextMessage(contextId)
-		if err != nil {
-			return "", err
-		}
-		if contextMessage != "" {
-			context = append(context, contextMessage)
-		}
+	}
+	contextMessage, err := db.GetContextMessage(contextId)
+	if err != nil {
+		return "", err
+	}
+	if c.Logger != nil {
+		c.Logger.WithFields(logrus.Fields{
+			"contextMessage": contextMessage,
+			"contextId":      contextId,
+		}).Debug("Context message")
+	}
+	if contextMessage != "" {
+		context = append(context, contextMessage)
 	}
 	newMessage := db.CreateNewMessage(db.UserRoleName, message, contextId)
 	_, err = db.StoreMessage(newMessage)
