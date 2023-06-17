@@ -144,10 +144,11 @@ func (g *GptClient) prepareGPTRequestBody(messages []db.Message) ([]byte, error)
 	model := g.Model
 	if tokens+g.MaxTokens >= g.Model.MaxTokens {
 		maxTokens = model.MaxTokens - tokens
-		if g.Model == ModelGPT4 && tokens > g.Model.MaxTokens/2 {
-			model = ModelGPT4Big
-			maxTokens = model.MaxTokens - tokens
-		}
+		// Disabled since GPT4 big is not yet available
+		// if g.Model == ModelGPT4 && tokens > g.Model.MaxTokens/2 {
+		// 	model = ModelGPT4Big
+		// 	maxTokens = model.MaxTokens - tokens
+		// }
 	}
 
 	if maxTokens <= 0 {
