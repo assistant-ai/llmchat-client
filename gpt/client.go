@@ -38,7 +38,7 @@ func NewGptClient(openAiKey string, contextDepth int, model *GPTModel, defaultCo
 	return &client.Client{
 		Client: &GptClient{
 			OpenAiKey: openAiKey,
-			Model:     ModelGPT4,
+			Model:     model,
 			MaxTokens: maxTokens,
 			Logger:    logger,
 		},
@@ -53,7 +53,7 @@ func NewGptClientFromFile(openAiKeyFlePath string, contextDepth int, model *GPTM
 	if err != nil {
 		return nil, err
 	}
-	return NewGptClient(strings.ReplaceAll(string(b), "\n", ""), contextDepth, ModelGPT4, defaultContext, maxTokens, logger), nil
+	return NewGptClient(strings.ReplaceAll(string(b), "\n", ""), contextDepth, model, defaultContext, maxTokens, logger), nil
 }
 
 func (g *GptClient) SendMessages(messages []db.Message, context []string) ([]db.Message, error) {
