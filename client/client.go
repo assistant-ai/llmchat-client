@@ -70,16 +70,26 @@ func (c *Client) SendMessageWithContextDepth(message string, inputContextId stri
 			context = append(context, userDefaultContextMessage)
 		}
 	}
-	contextMessage, err := db.GetContextMessage(contextId)
+
+	contextExist, err := db.CheckIfContextExists(contextId)
 	if err != nil {
 		return "", err
 	}
-	if c.Logger != nil {
-		c.Logger.WithFields(logrus.Fields{
-			"contextMessage": contextMessage,
-			"contextId":      contextId,
-		}).Debug("Context message")
+
+	contextMessage := ""
+	if contextExist {
+		contextMessage, err := db.GetContextMessage(contextId)
+		if err != nil {
+			return "", err
+		}
+		if c.Logger != nil {
+			c.Logger.WithFields(logrus.Fields{
+				"contextMessage": contextMessage,
+				"contextId":      contextId,
+			}).Debug("Context message")
+		}
 	}
+
 	if contextMessage != "" {
 		context = append(context, contextMessage)
 	}

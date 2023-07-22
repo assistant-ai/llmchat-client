@@ -197,10 +197,10 @@ func GetContextMessage(contextId string) (string, error) {
 	var m Message
 	m.Role = SystemRoleName
 	err := db.QueryRow("SELECT context_id, context FROM context WHERE context_id=?", contextId).Scan(&m.ContextId, &m.Content)
-	if err.Error() == "sql: no rows in result set" {
-		return "", nil
-	}
 	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return "", nil
+		}
 		return "", err
 	}
 
