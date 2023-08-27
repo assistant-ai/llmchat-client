@@ -16,8 +16,12 @@ type LllmChatClient interface {
 	SendMessages(messages []db.Message, context []string) ([]db.Message, error)
 }
 
-func (c *Client) SenRandomContextMessage(message string) (string, error) {
-	return c.SendMessage(message, db.RandomContextId)
+func (c *Client) SendNoContextMessage(message string) (string, error) {
+	return c.SendMessageWithContextDepth(message, db.RandomContextId, 0, false)
+}
+
+func (c *Client) SendRandomContextMessage(message string) (string, error) {
+	return c.SendMessageWithContextDepth(message, db.RandomContextId, 0, false)
 }
 
 func (c *Client) SendMessage(message string, inputContextId string) (string, error) {
