@@ -18,6 +18,11 @@ var ModelGPT4Big = &GPTModel{
 	MaxTokens: 32000,
 }
 
+var ModelGPT4Turbo = &GPTModel{
+	Name:      "gpt-4-1106-preview",
+	MaxTokens: 128000,
+}
+
 var ModelGPT3Turbo = &GPTModel{
 	Name:      "gpt-3.5-turbo",
 	MaxTokens: 4000,
