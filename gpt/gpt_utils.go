@@ -8,7 +8,8 @@ func GetLlmClientGptModels() map[string]*GPTModel {
 	Models["gpt3TurboBig"] = ModelGPT3TurboBig
 	Models["gpt4"] = ModelGPT4
 	Models["gpt4Big"] = ModelGPT4Big
-	Models["gpt4Turbo"] = ModelGPT4Turbo 
+	Models["gpt4Turbo"] = ModelGPT4Turbo
+	Models["gpt4Vision"] = ModelGPT4Vision 
 	return Models
 }
 
